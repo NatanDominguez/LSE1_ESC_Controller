@@ -44,8 +44,8 @@
 //
 //
 //*****************************************************************************
-
 uint8_t state;
+uint8_t phase;
 uint8_t timerA_flag=0;
 //uint8_t variable_random;
 
@@ -84,18 +84,16 @@ void Configure_GPIO(void)
         // Enable the GPIO port that is used for the on-board LED.
         //
         SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-
-        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF))
-        {
-
-        }
+        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF)){}
+        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOC)){}
+        SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+        while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA)){}
 
         //
         // Enable the GPIO pins for button PF2
         //
         GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_4);
-
-        //
 
         //GPIOIntEnable(GPIO_PORTF_BASE,GPIO_PIN_4);
 
@@ -105,10 +103,29 @@ void Configure_GPIO(void)
 
         IntEnable(INT_GPIOF);
 
-
         GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_4, GPIO_FALLING_EDGE);
         GPIOIntRegister(GPIO_PORTF_BASE,IntPortFHandler); // Registrar la ISR para el puerto F
         GPIOIntEnable(GPIO_PORTF_BASE, GPIO_INT_PIN_4);  // Habilitar interrupción para PF4
+
+
+        // OUTPUT INIT
+        /*
+         * LA -> PC5 (OUTPUT)
+         * LB -> PF2 (OUTPUT)
+         * LC -> PA7 (OUTPUT)
+         */
+
+        // PC5
+        GPIOPinTypeGPIOOutput(GPIO_PORTC_BASE, GPIO_PIN_5);
+        GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_PIN_5);  //INICIAL STATE OFF
+
+        // PF2
+        GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);  //INICIAL STATE OFF
+
+        // PA7
+        GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_7);
+        GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);  //INICIAL STATE OFF
 
 }
 
@@ -156,7 +173,7 @@ void Timer0IntHandler(void){
     //
     // Toggle the flag for the first timer.
     //
-    timerA_flag=timerA_flag+1;
+    phase++;
 
     IntMasterEnable();
 }
@@ -248,11 +265,6 @@ void Configure_PWM(void){
 }
 
 
-//*****************************************************************************
-//
-// Print "Hello World!" to the UART on the evaluation board.
-//
-//*****************************************************************************
 int main(void){
     //volatile uint32_t ui32Loop;
 
@@ -277,9 +289,41 @@ int main(void){
     //
     //
     //
-    while(1)
-    {
 
+    /* INICIAL STATE (PWMA ON; PWMB OFF; PWMC OFF; AL OFF; BL ON; CL OFF) */
+    phase = 1;
+    GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, 0);           // AL INICIAL STATE OFF
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);  // BL INICIAL STATE ON
+    GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);  // CL INICIAL STATE OFF
+
+    while(1){
+
+        if(phase > 6)   phase = 1; // ENSURE PERIODICITY
+
+        //DE MOMENT OPEN-LOOP (NO ACTIVEM INTERRUPCIONS PER DETECTAR PAS-ZERO)
+        
+        if(phase == 1){         // PWMA -> ON; PWMC -> OFF
+
+        }
+        else if(phase == 2){    // BL -> OFF; CL -> ON
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
+            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);
+        }
+        else if(phase == 3){    // PWMA -> OFF; PWMB -> ON
+
+        }
+        else if(phase == 4){    // AL -> ON; CL -> OFF
+            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_PIN_5);
+            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);
+
+        }
+        else if(phase == 5){    // PWMB -> OFF; PWMC -> ON
+
+        }
+        else{   //phase = 6 ||     AL -> OFF; BL -> ON
+            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, 0);
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);
+        }
 
     }
 }
