@@ -176,7 +176,7 @@ void Configure_Timer0(uint32_t ticks){
     {
     }
 
-    TimerConfigure(TIMER0_BASE,  TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
+    TimerConfigure(TIMER0_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
     //
     // Set the count time for the the one-shot timer (TimerA).
     //
@@ -188,6 +188,10 @@ void Configure_Timer0(uint32_t ticks){
     //
     // Enable the timers.
 
+
+    // evento de interrupcion que salta cuando el timer cuenta hasta ticks
+    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT); 
+    
     TimerEnable(TIMER0_BASE, TIMER_A);
 
     IntEnable(INT_TIMER0A);
