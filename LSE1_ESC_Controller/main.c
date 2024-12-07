@@ -81,7 +81,7 @@ void IntPortFHandler(void);
 void Configure_GPIO(void)
 {
 
-        // Enable the GPIO port that is used for the on-board LED.
+        // Enable the GPIO port F / C / A
         //
         SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
         while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF)){}
@@ -90,42 +90,38 @@ void Configure_GPIO(void)
         SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
         while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA)){}
 
+
         //
-        // Enable the GPIO pins for button PF2
+        //INICIALIZE BUTTON PF2
         //
         GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_4);
 
-        //GPIOIntEnable(GPIO_PORTF_BASE,GPIO_PIN_4);
-
         //Habilita pull-up
-
         GPIOPadConfigSet(GPIO_PORTF_BASE,GPIO_PIN_4,GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
-
         IntEnable(INT_GPIOF);
-
         GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_4, GPIO_FALLING_EDGE);
         GPIOIntRegister(GPIO_PORTF_BASE,IntPortFHandler); // Registrar la ISR para el puerto F
-        GPIOIntEnable(GPIO_PORTF_BASE, GPIO_INT_PIN_4);  // Habilitar interrupción para PF4
+        GPIOIntEnable(GPIO_PORTF_BASE, GPIO_INT_PIN_4);  // Habilitar interrupciï¿½n para PF4
 
 
         // OUTPUT INIT
         /*
-         * LA -> PC5 (OUTPUT)
+         * LA -> PC4 (OUTPUT)
          * LB -> PF2 (OUTPUT)
-         * LC -> PA7 (OUTPUT)
+         * LC -> PA6 (OUTPUT)
          */
 
         // PC5
-        GPIOPinTypeGPIOOutput(GPIO_PORTC_BASE, GPIO_PIN_5);
-        GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_PIN_5);  //INICIAL STATE OFF
+        GPIOPinTypeGPIOOutput(GPIO_PORTC_BASE, GPIO_PIN_4);
+        GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_4, GPIO_PIN_4);  //INICIAL STATE OFF
 
         // PF2
         GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);  //INICIAL STATE OFF
 
-        // PA7
-        GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_7);
-        GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);  //INICIAL STATE OFF
+        // PA6
+        GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_6);
+        GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_PIN_6);  //INICIAL STATE OFF
 
 }
 
@@ -142,10 +138,15 @@ void IntPortFHandler(void)
         state ^= 1;
 
         if(state == 1){
-            PWMOutputState(PWM0_BASE, (PWM_OUT_0_BIT | PWM_OUT_1_BIT), false);
+            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, false);
+            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, false);
+            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT, false);
         }
         else{
-            PWMOutputState(PWM0_BASE, (PWM_OUT_0_BIT | PWM_OUT_1_BIT), true);
+
+            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, true);//A
+            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, true);//B
+            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT, true);//C
         }
     }
     IntMasterEnable();
@@ -180,6 +181,17 @@ void Timer0IntHandler(void){
 
 
 void Timer1IntHandler(void){
+    IntMasterDisable();
+    //
+    // Clear the timer interrupt.
+    //
+    TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+    //
+    // Toggle the flag for the first timer.
+    //
+
+    IntMasterEnable();
 }
 
 
@@ -207,11 +219,44 @@ void Configure_Timer0(uint32_t ticks){
 
 
     // evento de interrupcion que salta cuando el timer cuenta hasta ticks
-    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT); 
-    
+    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+
     TimerEnable(TIMER0_BASE, TIMER_A);
 
     IntEnable(INT_TIMER0A);
+    //
+
+}
+
+void Configure_Timer1(uint32_t ticks){
+
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
+    //
+    // Wait for the Timer0 module to be ready.
+    //
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_TIMER1))
+    {
+    }
+
+    TimerConfigure(TIMER1_BASE, TIMER_CFG_SPLIT_PAIR | TIMER_CFG_A_PERIODIC);
+    //
+    // Set the count time for the the one-shot timer (TimerA).
+    //
+    TimerLoadSet(TIMER1_BASE, TIMER_A, ticks);
+    //
+    //
+
+    TimerIntRegister(TIMER1_BASE,TIMER_A,Timer1IntHandler);
+    //
+    // Enable the timers.
+
+
+    // evento de interrupcion que salta cuando el timer cuenta hasta ticks
+    TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+
+    TimerEnable(TIMER1_BASE, TIMER_A);
+
+    IntEnable(INT_TIMER1A);
     //
 
 }
@@ -227,53 +272,63 @@ void Configure_PWM(void){
 
     }
 
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM1);
 
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_PWM1))
+    {
 
-    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB))
-        {
-
-        }
+    }
 
 
-    GPIOPinConfigure(GPIO_PB7_M0PWM1);
+    GPIOPinConfigure(GPIO_PC5_M0PWM7);
+    GPIOPinConfigure(GPIO_PF3_M1PWM7);
+    GPIOPinConfigure(GPIO_PA7_M1PWM3);
 
-    GPIOPinTypePWM(GPIO_PORTB_BASE,GPIO_PIN_7);
+    GPIOPinTypePWM(GPIO_PORTC_BASE,GPIO_PIN_5);
+    GPIOPinTypePWM(GPIO_PORTF_BASE,GPIO_PIN_3);
+    GPIOPinTypePWM(GPIO_PORTA_BASE,GPIO_PIN_7);
 
-    PWMGenConfigure(PWM0_BASE, PWM_GEN_0, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_NO_SYNC);
+    PWMGenConfigure(PWM0_BASE, PWM_GEN_3, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_NO_SYNC);
+    PWMGenConfigure(PWM1_BASE, PWM_GEN_3, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_NO_SYNC);
+    PWMGenConfigure(PWM1_BASE, PWM_GEN_1, PWM_GEN_MODE_DOWN | PWM_GEN_MODE_NO_SYNC);
 
-    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_0, 400);
+
+    /*
+    FASE A ------------- PC5 -> GEN 3   PWM0
+    FASE B ------------- PF3 -> GEN 3   PWM1
+    FASE C ------------- PA7 -> GEN 1   PWM1
+    */
+
+    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_3, 400);
+    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_3, 400);
+    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_1, 400);
     //
     // Set the pulse width of PWM0 for a 25% duty cycle.
     //
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_0, 350);
+    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, 350);
+    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_7, 350);
+    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3, 350);
+
     //
-    // Set the pulse width of PWM1 for a 75% duty cycle.
+    // Start the timers in corresponding generators.
     //
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_1, 50);
-    //
-    // Start the timers in generator 0.
-    //
-    PWMGenEnable(PWM0_BASE, PWM_GEN_0);
+    PWMGenEnable(PWM0_BASE, PWM_GEN_3);
+    PWMGenEnable(PWM1_BASE, PWM_GEN_3);
+    PWMGenEnable(PWM1_BASE, PWM_GEN_1);
     //
     // Enable the outputs.
     //
-    PWMOutputState(PWM0_BASE, (PWM_OUT_0_BIT | PWM_OUT_1_BIT), true);
 
+
+    PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, true);
+    PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, true);
+    PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT, true);
 
 
 }
 
 
 int main(void){
-    //volatile uint32_t ui32Loop;
-
-    //
-    // Enable lazy stacking for interrupt handlers.  This allows floating-point
-    // instructions to be used within interrupt handlers, but at the expense of
-    // extra stack usage.
-    //
-     FPULazyStackingEnable();
 
     //
     // Set the clocking to run directly from the crystal.
@@ -282,8 +337,8 @@ int main(void){
 
 
     IntMasterEnable();
-    Configure_PWM();
     Configure_GPIO();
+    Configure_PWM();
     uint32_t ticks=10000;
     Configure_Timer0(ticks);
     //
@@ -292,36 +347,45 @@ int main(void){
 
     /* INICIAL STATE (PWMA ON; PWMB OFF; PWMC OFF; AL OFF; BL ON; CL OFF) */
     phase = 1;
-    GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, 0);           // AL INICIAL STATE OFF
+    GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_4, 0);           // AL INICIAL STATE OFF
     GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);  // BL INICIAL STATE ON
-    GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);  // CL INICIAL STATE OFF
+    GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, 0);  // CL INICIAL STATE OFF
+
+    PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, true);//A
+    PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, false);//B
+    PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT,false);//C
+
 
     while(1){
 
         if(phase > 6)   phase = 1; // ENSURE PERIODICITY
 
         //DE MOMENT OPEN-LOOP (NO ACTIVEM INTERRUPCIONS PER DETECTAR PAS-ZERO)
-        
-        if(phase == 1){         // PWMA -> ON; PWMC -> OFF
 
+        if(phase == 1){         // PWMA -> ON; PWMC -> OFF
+            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, true);//A
+            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT,false);//C
         }
         else if(phase == 2){    // BL -> OFF; CL -> ON
             GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
-            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);
-        }
-        else if(phase == 3){    // PWMA -> OFF; PWMB -> ON
+            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_PIN_6);
 
         }
+        else if(phase == 3){    // PWMA -> OFF; PWMB -> ON
+            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, false);//A
+            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, true);//B
+        }
         else if(phase == 4){    // AL -> ON; CL -> OFF
-            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, GPIO_PIN_5);
-            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);
+            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_4, GPIO_PIN_4);
+            GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_6, 0);
 
         }
         else if(phase == 5){    // PWMB -> OFF; PWMC -> ON
-
+            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, false);//B
+            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT,true);//C
         }
         else{   //phase = 6 ||     AL -> OFF; BL -> ON
-            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_5, 0);
+            GPIOPinWrite(GPIO_PORTC_BASE, GPIO_PIN_4, 0);
             GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);
         }
 
