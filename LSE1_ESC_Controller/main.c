@@ -44,9 +44,11 @@
 //
 //
 //*****************************************************************************
-uint8_t state;
+uint8_t state_l;
 uint8_t phase;
 uint8_t timerA_flag=0;
+uint32_t ticks=40000;
+uint8_t state;
 //uint8_t variable_random;
 
 //*****************************************************************************
@@ -135,7 +137,7 @@ void IntPortFHandler(void)
     GPIOIntClear(GPIO_PORTF_BASE,GPIO_INT_PIN_4);
 
     if ((status & GPIO_PIN_4)==GPIO_PIN_4){
-        state ^= 1;
+        state_l ^= 1;
 
         if(state == 1){
             PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, false);
@@ -175,6 +177,16 @@ void Timer0IntHandler(void){
     // Toggle the flag for the first timer.
     //
     phase++;
+
+    if(state == 0){
+        ticks -= 10;
+        TimerLoadSet(TIMER0_BASE, TIMER_A, ticks);
+    }
+    if(ticks <= 10000){
+        ticks = 10000;
+        state = 1;
+        TimerLoadSet(TIMER0_BASE, TIMER_A, ticks);
+    }
 
     IntMasterEnable();
 }
@@ -339,7 +351,6 @@ int main(void){
     IntMasterEnable();
     Configure_GPIO();
     Configure_PWM();
-    uint32_t ticks=10000;
     Configure_Timer0(ticks);
     //
     //
