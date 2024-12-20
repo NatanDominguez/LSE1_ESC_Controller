@@ -47,8 +47,13 @@
 uint8_t state_l;
 uint8_t phase;
 uint8_t timerA_flag=0;
-uint32_t ticks=40000;
+uint32_t ticks = 65000;
+uint32_t pwm_freq = 2400;
+uint32_t pulse_width = 500;
 uint8_t state;
+uint8_t restart = 0;
+uint32_t pulse_counter = 0;
+uint8_t fin_rampa = 0;
 //uint8_t variable_random;
 
 //*****************************************************************************
@@ -137,19 +142,7 @@ void IntPortFHandler(void)
     GPIOIntClear(GPIO_PORTF_BASE,GPIO_INT_PIN_4);
 
     if ((status & GPIO_PIN_4)==GPIO_PIN_4){
-        state_l ^= 1;
-
-        if(state == 1){
-            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, false);
-            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, false);
-            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT, false);
-        }
-        else{
-
-            PWMOutputState(PWM0_BASE, PWM_OUT_7_BIT, true);//A
-            PWMOutputState(PWM1_BASE, PWM_OUT_7_BIT, true);//B
-            PWMOutputState(PWM1_BASE, PWM_OUT_3_BIT, true);//C
-        }
+        restart ^= 1;
     }
     IntMasterEnable();
 }
@@ -177,16 +170,35 @@ void Timer0IntHandler(void){
     // Toggle the flag for the first timer.
     //
     phase++;
+    pulse_counter++;
 
-    if(state == 0){
-        ticks -= 10;
+    if(restart){
+        ticks = 50000;
+        pulse_width = 500;
+        pulse_counter = 0;
+        fin_rampa = 0;
+        restart = 0;
+    }
+    if (pulse_counter > 70 && pulse_width >= 336){
+        pulse_width--;
+        pulse_counter = 0;
+
+        PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, pulse_width);
+        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_7, pulse_width);
+        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3, pulse_width);
+    }
+
+    if(fin_rampa == 0){
+        ticks -= 3;
         TimerLoadSet(TIMER0_BASE, TIMER_A, ticks);
     }
-    if(ticks <= 10000){
-        ticks = 10000;
-        state = 1;
+    if(ticks < 20000){
+        ticks = 20000;
+        fin_rampa = 1;
         TimerLoadSet(TIMER0_BASE, TIMER_A, ticks);
     }
+
+
 
     IntMasterEnable();
 }
@@ -311,15 +323,17 @@ void Configure_PWM(void){
     FASE C ------------- PA7 -> GEN 1   PWM1
     */
 
-    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_3, 400);
-    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_3, 400);
-    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_1, 400);
+
+
+    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_3, pwm_freq);
+    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_3, pwm_freq);
+    PWMGenPeriodSet(PWM1_BASE, PWM_GEN_1, pwm_freq);
     //
     // Set the pulse width of PWM0 for a 25% duty cycle.
     //
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, 350);
-    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_7, 350);
-    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3, 350);
+    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, pulse_width);
+    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_7, pulse_width);
+    PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3, pulse_width);
 
     //
     // Start the timers in corresponding generators.
@@ -355,6 +369,7 @@ int main(void){
     //
     //
     //
+
 
     /* INICIAL STATE (PWMA ON; PWMB OFF; PWMC OFF; AL OFF; BL ON; CL OFF) */
     phase = 1;
